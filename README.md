@@ -17,6 +17,16 @@ from your vault and view it as a native dashboard with interactive charts.
   filter (scopes the category, balances, and recent-transaction panels to a subtree).
 - Account classification configurable for English or Portuguese account names.
 
+## Screenshots
+
+![Overview tab](https://github.com/user-attachments/assets/447452fc-9ce1-4d80-aeaf-9fa8c96c10e5)
+
+![Expenses tab](https://github.com/user-attachments/assets/ea6c8a04-9662-4362-81d0-ef3dca9cb70c)
+
+![Income tab](https://github.com/user-attachments/assets/a3d385f8-2d73-4d47-9596-86736eed9710)
+
+![New entry screen](https://github.com/user-attachments/assets/113230bf-8a06-4343-88bb-678b20875b12)
+
 ## Setup
 
 1. Enable the plugin.
