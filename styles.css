@@ -1,0 +1,493 @@
+.hledger-view {
+	padding: 12px;
+	overflow-y: auto;
+}
+
+/* Controls */
+.hledger-controls {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-bottom: 12px;
+}
+.hledger-period,
+.hledger-ctl {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+.hledger-period button {
+	padding: 4px 10px;
+}
+.hledger-ctl-icon,
+.hledger-stat-icon,
+.hledger-card-icon {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+/* Warnings / empty state */
+.hledger-warning {
+	display: flex;
+	gap: 8px;
+	padding: 8px 12px;
+	margin-bottom: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-left: 3px solid var(--color-orange, var(--text-warning));
+	border-radius: 6px;
+	background: var(--background-secondary);
+	font-size: var(--font-ui-smaller);
+}
+.hledger-warning ul {
+	margin: 0;
+	padding-left: 18px;
+}
+.hledger-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 48px 12px;
+	color: var(--text-muted);
+	text-align: center;
+}
+.hledger-empty-icon {
+	transform: scale(2);
+	opacity: 0.6;
+}
+
+/* Summary cards */
+.hledger-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 10px;
+	margin-bottom: 12px;
+}
+.hledger-stat {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px 14px;
+}
+.hledger-stat-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.hledger-stat-label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.hledger-stat-value {
+	font-size: 1.5em;
+	font-weight: var(--font-semibold);
+	margin-top: 4px;
+}
+
+/* Chart grid */
+.hledger-grid {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	gap: 10px;
+}
+.hledger-card {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px;
+	min-width: 0;
+}
+.hledger-card.is-full {
+	grid-column: 1 / -1;
+}
+.hledger-card-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: var(--font-semibold);
+	margin-bottom: 10px;
+}
+.hledger-card-body {
+	position: relative;
+	height: 220px;
+}
+.hledger-card-body canvas {
+	max-height: 220px;
+}
+
+/* Account balance bars */
+.hledger-bars {
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+	height: auto;
+}
+.hledger-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--font-ui-smaller);
+}
+.hledger-bar-name {
+	flex: 0 0 auto;
+	width: 110px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.hledger-bar-track {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 14px;
+}
+.hledger-bar {
+	height: 100%;
+	max-width: 100%;
+	border-radius: 3px;
+	background: var(--interactive-accent);
+}
+.hledger-bar.is-negative {
+	background: var(--color-red);
+}
+.hledger-bar-val {
+	flex: 0 0 auto;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Recent transactions */
+.hledger-tx {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-ui-smaller);
+}
+.hledger-tx td {
+	padding: 5px 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+.hledger-amt {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+.hledger-amt.is-negative {
+	color: var(--color-red);
+}
+.hledger-amt.is-positive {
+	color: var(--color-green);
+}
+
+/* The balances/recent cards size to content, not the 220px chart height */
+.hledger-card-body:has(.hledger-bars),
+.hledger-card-body:has(.hledger-tx) {
+	height: auto;
+}
+
+@media (max-width: 600px) {
+	.hledger-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Range calendar popover */
+.hledger-datepicker {
+	position: fixed;
+	z-index: var(--layer-popover, 30);
+	width: 248px;
+	padding: 10px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.hledger-cal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+.hledger-cal-title {
+	font-weight: var(--font-semibold);
+	font-size: var(--font-ui-small);
+}
+.hledger-cal-nav {
+	cursor: pointer;
+}
+.hledger-cal-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+.hledger-cal-weekday {
+	padding: 2px 0;
+	text-align: center;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+.hledger-cal-day {
+	padding: 5px 0;
+	text-align: center;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+}
+.hledger-cal-day:hover {
+	background: var(--background-modifier-hover);
+}
+.hledger-cal-day.is-outside {
+	color: var(--text-faint);
+}
+.hledger-cal-day.is-in-range {
+	background: var(--text-selection);
+}
+.hledger-cal-day.is-endpoint {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* Tabs */
+.hledger-tabs {
+	display: flex;
+	gap: 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 10px;
+}
+.hledger-tab {
+	padding: 7px 14px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	cursor: pointer;
+	border-radius: 6px 6px 0 0;
+}
+.hledger-tab.is-active {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+	border-bottom: 2px solid var(--interactive-accent);
+}
+
+/* Expenses grid */
+.hledger-egrid {
+	display: grid;
+	grid-template-columns: 1fr 1.4fr;
+	gap: 10px;
+}
+@media (max-width: 600px) {
+	.hledger-egrid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Daily-expense heatmap */
+.hledger-heat {
+	display: grid;
+	grid-template-rows: auto repeat(7, 13px);
+	gap: 3px;
+	overflow-x: auto;
+	padding-top: 2px;
+}
+.hledger-heat-month {
+	grid-row: 1;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+.hledger-heat-cell {
+	width: 13px;
+	height: 13px;
+	border-radius: 2px;
+	background: var(--background-modifier-border);
+}
+.hledger-heat-cell.level-1 {
+	background: color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+}
+.hledger-heat-cell.level-2 {
+	background: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+}
+.hledger-heat-cell.level-3 {
+	background: color-mix(in srgb, var(--interactive-accent) 70%, transparent);
+}
+.hledger-heat-cell.level-4 {
+	background: var(--interactive-accent);
+}
+.hledger-heat-cell.is-pad {
+	background: transparent;
+}
+.hledger-card-body:has(.hledger-heat),
+.hledger-card-body:has(.hledger-top),
+.hledger-card-body:has(.hledger-empty-note) {
+	height: auto;
+}
+
+/* Expenses table extras */
+.hledger-tx th {
+	text-align: left;
+	color: var(--text-muted);
+	font-weight: var(--font-normal);
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+	padding: 4px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+.hledger-tx th.hledger-amt {
+	text-align: right;
+}
+.hledger-cat {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+.hledger-pager {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 10px;
+}
+.hledger-pager-info {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+.hledger-empty-note {
+	padding: 16px 4px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* Summary-card trend */
+.hledger-stat-head {
+	justify-content: flex-start;
+}
+.hledger-stat-trend {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+	font-size: var(--font-ui-smaller);
+}
+.hledger-stat-trend.is-good {
+	color: var(--color-green);
+}
+.hledger-stat-trend.is-bad {
+	color: var(--color-red);
+}
+.hledger-stat-trend.is-flat {
+	color: var(--text-muted);
+}
+.hledger-stat-trend-icon {
+	display: inline-flex;
+}
+.hledger-stat-trend-icon .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* Heatmap clickable / selected day */
+.hledger-heat-cell.is-clickable {
+	cursor: pointer;
+}
+.hledger-heat-cell.is-selected {
+	outline: 2px solid var(--text-normal);
+	outline-offset: -1px;
+}
+
+/* Top expenses */
+.hledger-top {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.hledger-top-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: var(--font-ui-smaller);
+}
+.hledger-top-desc {
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.hledger-top-cat {
+	flex: 0 0 auto;
+	color: var(--text-muted);
+}
+.hledger-top-amt {
+	flex: 0 0 auto;
+	font-variant-numeric: tabular-nums;
+}
+.hledger-top-amt.is-positive {
+	color: var(--color-green);
+}
+.hledger-top-amt.is-negative {
+	color: var(--color-red);
+}
+
+/* Transactions toolbar: search, chip, CSV */
+.hledger-tx-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+.hledger-search {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1 1 160px;
+}
+.hledger-search-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.hledger-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 8px;
+	border-radius: 12px;
+	background: var(--background-modifier-hover);
+	font-size: var(--font-ui-smaller);
+}
+.hledger-chip-x {
+	display: inline-flex;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+.hledger-csv-btn {
+	margin-left: auto;
+}
+
+/* Controls actions group ("+" and reload) */
+.hledger-actions {
+	margin-left: auto;
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+/* New-entry modal */
+.hledger-entry-modal .hledger-modal-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 10px;
+}
+.hledger-entry-modal .hledger-modal-field label {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+.hledger-entry-modal .hledger-modal-field input {
+	width: 100%;
+}
+.hledger-entry-modal .hledger-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
