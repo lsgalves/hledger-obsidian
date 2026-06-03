@@ -3,7 +3,7 @@
 	"name": "Hledger",
 	"version": "1.0.0",
 	"minAppVersion": "1.7.2",
-	"description": "Plain text accounting plugin for Obsidian, using hledger.",
+	"description": "Plain text accounting plugin using hledger.",
 	"author": "Leonardo Galves",
 	"authorUrl": "https://ls.galv.es",
 	"isDesktopOnly": false
