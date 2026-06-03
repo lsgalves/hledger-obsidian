@@ -1,6 +1,6 @@
 {
 	"name": "hledger-obsidian",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Plain text accounting plugin for Obsidian, using hledger.",
 	"main": "main.js",
 	"type": "module",

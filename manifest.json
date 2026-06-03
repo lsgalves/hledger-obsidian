@@ -1,7 +1,7 @@
 {
 	"id": "hledger",
 	"name": "Hledger",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "1.7.2",
 	"description": "Plain text accounting plugin using hledger.",
 	"author": "Leonardo Galves",
