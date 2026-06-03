@@ -29,7 +29,7 @@ export default class HledgerPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'open-hledger-dashboard',
+			id: 'open-dashboard',
 			name: 'Open dashboard',
 			callback: () => {
 				void this.activateView();
