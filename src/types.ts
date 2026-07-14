@@ -14,10 +14,15 @@ export interface Posting {
 	amount: number; // signed
 }
 
+export type TxnStatus = 'cleared' | 'pending' | 'unmarked';
+
+/** Status the dashboard filters on: any status, or one specific status. */
+export type StatusFilter = 'all' | TxnStatus;
+
 export interface Transaction {
 	date: Date;
 	description: string;
-	status: 'cleared' | 'pending' | 'unmarked';
+	status: TxnStatus;
 	postings: Posting[];
 }
 

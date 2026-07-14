@@ -1,22 +1,23 @@
 import { App, ButtonComponent, Modal, Notice } from 'obsidian';
 import { parseAmount } from './amount';
 import type { EntryData } from './entry';
+import type { EntrySuggestion } from './suggest';
+import { suggestForDescription } from './suggest';
+
+export interface EntryModalOptions {
+	accounts: string[];
+	commodity: string;
+	descriptions: string[];
+	suggestions: Map<string, EntrySuggestion>;
+	onSubmit: (data: EntryData) => void;
+}
 
 export class EntryModal extends Modal {
-	private accounts: string[];
-	private commodity: string;
-	private onSubmit: (data: EntryData) => void;
+	private opts: EntryModalOptions;
 
-	constructor(
-		app: App,
-		accounts: string[],
-		commodity: string,
-		onSubmit: (data: EntryData) => void,
-	) {
+	constructor(app: App, opts: EntryModalOptions) {
 		super(app);
-		this.accounts = accounts;
-		this.commodity = commodity;
-		this.onSubmit = onSubmit;
+		this.opts = opts;
 	}
 
 	onOpen(): void {
@@ -24,11 +25,17 @@ export class EntryModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('hledger-entry-modal');
+		const { commodity } = this.opts;
 
-		const listId = 'hledger-accounts-list';
-		const datalist = contentEl.createEl('datalist');
-		datalist.id = listId;
-		for (const a of this.accounts) datalist.createEl('option', { value: a });
+		const acctListId = 'hledger-accounts-list';
+		const acctList = contentEl.createEl('datalist');
+		acctList.id = acctListId;
+		for (const a of this.opts.accounts) acctList.createEl('option', { value: a });
+
+		const descListId = 'hledger-desc-list';
+		const descList = contentEl.createEl('datalist');
+		descList.id = descListId;
+		for (const d of this.opts.descriptions) descList.createEl('option', { value: d });
 
 		const now = new Date();
 		const today = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
@@ -36,14 +43,26 @@ export class EntryModal extends Modal {
 		const dateInput = this.field('Date', 'date');
 		dateInput.value = today;
 		const descInput = this.field('Description', 'text');
+		descInput.setAttribute('list', descListId);
 		const categoryInput = this.field('Account (category)', 'text');
-		categoryInput.setAttribute('list', listId);
+		categoryInput.setAttribute('list', acctListId);
 		const amountInput = this.field(
-			this.commodity ? `Amount (${this.commodity})` : 'Amount',
+			commodity ? `Amount (${commodity})` : 'Amount',
 			'text',
 		);
 		const sourceInput = this.field('Source account', 'text');
-		sourceInput.setAttribute('list', listId);
+		sourceInput.setAttribute('list', acctListId);
+
+		// Smart autocomplete: fill empty category/source from the closest past description.
+		const applySuggestion = (): void => {
+			const sug = suggestForDescription(this.opts.suggestions, descInput.value);
+			if (!sug) return;
+			if (!categoryInput.value.trim()) categoryInput.value = sug.category;
+			if (!sourceInput.value.trim()) sourceInput.value = sug.source;
+			if (!amountInput.value.trim() && sug.amount) amountInput.value = sug.amount;
+		};
+		descInput.addEventListener('change', applySuggestion);
+		descInput.addEventListener('blur', applySuggestion);
 
 		const buttons = contentEl.createDiv({ cls: 'hledger-modal-buttons' });
 		new ButtonComponent(buttons).setButtonText('Cancel').onClick(() => this.close());
@@ -56,7 +75,7 @@ export class EntryModal extends Modal {
 					description: descInput.value.trim(),
 					category: categoryInput.value.trim(),
 					amount: amountInput.value.trim(),
-					commodity: this.commodity,
+					commodity,
 					source: sourceInput.value.trim(),
 				};
 				if (
@@ -73,7 +92,7 @@ export class EntryModal extends Modal {
 					new Notice('Please enter a valid amount.');
 					return;
 				}
-				this.onSubmit(data);
+				this.opts.onSubmit(data);
 				this.close();
 			});
 

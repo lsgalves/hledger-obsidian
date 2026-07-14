@@ -1,5 +1,11 @@
 import { Chart, registerables, type ChartConfiguration } from 'chart.js';
-import type { CategorySeries, Category, DualSeries, Series } from './compute';
+import type {
+	CategorySeries,
+	Category,
+	DualSeries,
+	Series,
+	WaterfallStep,
+} from './compute';
 import { withAlpha } from './color';
 
 Chart.register(...registerables);
@@ -103,6 +109,7 @@ export function createCategoryChart(
 	canvas: HTMLCanvasElement,
 	categories: Category[],
 	theme: ThemeColors,
+	onSelect?: (label: string) => void,
 ): Chart {
 	return new Chart(canvas, {
 		type: 'doughnut',
@@ -122,6 +129,89 @@ export function createCategoryChart(
 			responsive: true,
 			maintainAspectRatio: false,
 			plugins: { legend: { position: 'right', labels: { color: theme.muted } } },
+			onClick: onSelect
+				? (_evt, elements): void => {
+						const first = elements[0];
+						if (!first) return;
+						const label = categories[first.index]?.label;
+						if (label) onSelect(label);
+					}
+				: undefined,
+		},
+	});
+}
+
+export function createWaterfallChart(
+	canvas: HTMLCanvasElement,
+	steps: WaterfallStep[],
+	theme: ThemeColors,
+	fmt: (n: number) => string,
+): Chart {
+	const color = (s: WaterfallStep): string =>
+		s.kind === 'total' ? theme.accent : s.kind === 'income' ? theme.green : theme.red;
+	return new Chart(canvas, {
+		type: 'bar',
+		data: {
+			labels: steps.map((s) => s.label),
+			datasets: [
+				{
+					label: 'Cash flow',
+					data: steps.map((s) => [s.start, s.end] as [number, number]),
+					backgroundColor: steps.map((s) => color(s)),
+					borderWidth: 0,
+				},
+			],
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			plugins: {
+				legend: { display: false },
+				tooltip: {
+					callbacks: {
+						label: (item): string => {
+							const s = steps[item.dataIndex];
+							if (!s) return '';
+							return s.kind === 'total' ? fmt(s.end) : fmt(s.delta);
+						},
+					},
+				},
+			},
+			scales: {
+				x: { ticks: { color: theme.muted }, grid: { color: theme.border } },
+				y: { ticks: { color: theme.muted }, grid: { color: theme.border } },
+			},
+		},
+	});
+}
+
+export function createCompareChart(
+	canvas: HTMLCanvasElement,
+	labels: string[],
+	current: number[],
+	previous: number[],
+	theme: ThemeColors,
+	currentLabel: string,
+	previousLabel: string,
+): Chart {
+	return new Chart(canvas, {
+		type: 'bar',
+		data: {
+			labels,
+			datasets: [
+				{ label: previousLabel, data: previous, backgroundColor: theme.muted },
+				{ label: currentLabel, data: current, backgroundColor: theme.accent },
+			],
+		},
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			indexAxis: 'y',
+			plugins: { legend: { labels: { color: theme.muted } } },
+			scales: {
+				x: { ticks: { color: theme.muted }, grid: { color: theme.border } },
+				y: { ticks: { color: theme.muted }, grid: { color: theme.border } },
+			},
 		},
 	});
 }

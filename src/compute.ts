@@ -1,5 +1,21 @@
-import type { AccountClass, AccountPrefixMap, Journal, PeriodKey } from './types';
+import type {
+	AccountClass,
+	AccountPrefixMap,
+	Journal,
+	PeriodKey,
+	StatusFilter,
+	Transaction,
+} from './types';
 import { dayKey } from './daterange';
+
+/** A view of the journal restricted to transactions of a given status (or all). */
+export function filterByStatus(journal: Journal, status: StatusFilter): Journal {
+	if (status === 'all') return journal;
+	return {
+		...journal,
+		transactions: journal.transactions.filter((t) => t.status === status),
+	};
+}
 
 export const DEFAULT_PREFIXES: AccountPrefixMap = {
 	assets: 'asset',
@@ -210,6 +226,7 @@ export interface RecentTxn {
 	date: Date;
 	description: string;
 	amount: number;
+	txn: Transaction;
 }
 
 export function computeSummary(
@@ -244,6 +261,7 @@ export interface LedgerRow {
 	description: string;
 	category: string;
 	amount: number;
+	txn: Transaction;
 }
 
 /** Signed display amount: expenses are positive debits; income are credits (stored
@@ -338,7 +356,7 @@ export function computeRecentTransactions(
 			}
 		}
 		if (accountFilter && !touched) continue;
-		rows.push({ date: txn.date, description: txn.description, amount });
+		rows.push({ date: txn.date, description: txn.description, amount, txn });
 	}
 	return rows.reverse().slice(0, limit);
 }
@@ -386,6 +404,7 @@ export function computeClassRows(
 				description: txn.description,
 				category: post.account,
 				amount: classAmount(post.amount, klass),
+				txn,
 			});
 		}
 	}
@@ -504,6 +523,95 @@ export function computeTopByClass(
 		.slice()
 		.sort((a, b) => b.amount - a.amount)
 		.slice(0, limit);
+}
+
+export interface WaterfallStep {
+	label: string;
+	delta: number; // signed contribution: income positive, expense negative; totals 0
+	start: number; // cumulative level before this step
+	end: number; // cumulative level after this step
+	kind: 'total' | 'income' | 'expense';
+}
+
+/**
+ * Cash-flow waterfall for the period: opening balance → +income → −each expense category →
+ * closing balance. The opening balance is the asset+liability total before the range; the
+ * `topN` largest expense categories are kept and the rest folded into a trailing "Other".
+ */
+export function computeWaterfall(
+	journal: Journal,
+	commodity: string,
+	prefixes: AccountPrefixMap,
+	range: PeriodRange,
+	topN = 8,
+): WaterfallStep[] {
+	let opening = 0;
+	if (range.start !== null) {
+		for (const txn of journal.transactions) {
+			if (txn.date >= range.start) break;
+			for (const post of txn.postings) {
+				if (post.commodity !== commodity) continue;
+				const cls = classifyAccount(post.parts, prefixes);
+				if (cls === 'asset' || cls === 'liability') opening += post.amount;
+			}
+		}
+	}
+
+	let income = 0;
+	for (const txn of journal.transactions) {
+		if (!inRange(txn.date, range)) continue;
+		for (const post of txn.postings) {
+			if (post.commodity !== commodity) continue;
+			if (classifyAccount(post.parts, prefixes) === 'income') income -= post.amount;
+		}
+	}
+
+	const cats = computeByCategory(journal, commodity, prefixes, range, 'expense');
+	const top = cats.slice(0, topN);
+	const restTotal = cats.slice(topN).reduce((s, c) => s + c.value, 0);
+
+	const steps: WaterfallStep[] = [];
+	let cum = opening;
+	steps.push({ label: 'Opening', delta: 0, start: 0, end: opening, kind: 'total' });
+	if (income !== 0) {
+		steps.push({ label: 'Income', delta: income, start: cum, end: cum + income, kind: 'income' });
+		cum += income;
+	}
+	for (const c of top) {
+		steps.push({ label: c.label, delta: -c.value, start: cum, end: cum - c.value, kind: 'expense' });
+		cum -= c.value;
+	}
+	if (restTotal > 1e-9) {
+		steps.push({ label: 'Other', delta: -restTotal, start: cum, end: cum - restTotal, kind: 'expense' });
+		cum -= restTotal;
+	}
+	steps.push({ label: 'Closing', delta: 0, start: 0, end: cum, kind: 'total' });
+	return steps;
+}
+
+export interface CompareRow {
+	label: string;
+	current: number;
+	previous: number;
+}
+
+/** Merge two category breakdowns into aligned current/previous rows, by descending current. */
+export function compareCategories(
+	current: Category[],
+	previous: Category[],
+): CompareRow[] {
+	const prev = new Map(previous.map((c) => [c.label, c.value]));
+	const seen = new Set<string>();
+	const rows: CompareRow[] = [];
+	for (const c of current) {
+		seen.add(c.label);
+		rows.push({ label: c.label, current: c.value, previous: prev.get(c.label) ?? 0 });
+	}
+	for (const c of previous) {
+		if (seen.has(c.label)) continue;
+		rows.push({ label: c.label, current: 0, previous: c.value });
+	}
+	return rows.sort((a, b) => b.current - a.current || b.previous - a.previous);
 }
 
 /** Per-month totals for the class over the visible window (signed positive). */

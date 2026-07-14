@@ -2,9 +2,35 @@ import { parseLedgerToCooked } from 'hledger-parser';
 import { parseAmount } from './amount';
 import type { Journal, Posting, Transaction } from './types';
 
+// hledger-parser cannot lex a number-first format sample with an unquoted
+// commodity ("commodity 1,000.00 EGP") in commodity/D/format lines, even
+// though hledger accepts it. The equivalent symbol-first form parses fine,
+// and this plugin never consumes the sample itself, so swap the order.
+const NUMBER_FIRST_FORMAT_RE =
+	/^(commodity[ \t]+|D[ \t]+|[ \t]+format[ \t]+)([-+]?\d[\d,.]*)[ \t]+([^\s\d.,;+@"-]+)([ \t]*(?:;.*)?)$/;
+
+export function normalizeCommodityFormats(source: string): string {
+	return source
+		.split('\n')
+		.map((line) => line.replace(NUMBER_FIRST_FORMAT_RE, '$1$3 $2$4'))
+		.join('\n');
+}
+
 /** Parse hledger source into a normalized, sorted domain Journal. */
 export function buildModel(source: string): Journal {
-	const result = parseLedgerToCooked(source);
+	let result: ReturnType<typeof parseLedgerToCooked>;
+	try {
+		result = parseLedgerToCooked(normalizeCommodityFormats(source));
+	} catch (err) {
+		// The parser throws (instead of reporting) on some inputs it cannot
+		// lex; degrade to a warning instead of failing the whole dashboard.
+		return {
+			transactions: [],
+			commodities: [],
+			accounts: [],
+			errors: [`journal could not be parsed: ${String(err)}`],
+		};
+	}
 	const errors: string[] = [
 		...result.lexErrors.map((e) => e.message),
 		...result.parseErrors.map((e) => e.message),

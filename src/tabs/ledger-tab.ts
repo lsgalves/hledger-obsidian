@@ -18,7 +18,8 @@ import {
 import { buildHeatmapWeeks, monthLabels } from '../heatmap';
 import { dayKey } from '../daterange';
 import { buildLedgerCsv } from '../csv';
-import type { AccountClass, AccountPrefixMap, Journal } from '../types';
+import { renderStatusBadge } from '../widgets';
+import type { AccountClass, AccountPrefixMap, Journal, Transaction } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -65,6 +66,7 @@ export interface LedgerContext {
 	onCategoryChange: (value: string) => void;
 	setSearch: (value: string) => void;
 	onDayFilter: (key: string) => void;
+	onToggleStatus: (txn: Transaction) => void;
 	registerChart: (chart: Chart) => void;
 }
 
@@ -98,7 +100,7 @@ function emptyMsg(parent: HTMLElement, text: string): void {
 function downloadCsv(csv: string, filename: string): void {
 	const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
 	const url = URL.createObjectURL(blob);
-	const a = activeDocument.createElement('a');
+	const a = createEl('a');
 	a.href = url;
 	a.download = filename;
 	a.click();
@@ -144,7 +146,11 @@ export function renderLedgerBody(
 		emptyMsg(pieBody, config.emptyLabel);
 	} else {
 		const canvas = pieBody.createEl('canvas');
-		ctx.registerChart(createCategoryChart(canvas, categories, ctx.theme));
+		ctx.registerChart(
+			createCategoryChart(canvas, categories, ctx.theme, (label) =>
+				ctx.onCategoryChange(label),
+			),
+		);
 	}
 
 	if (config.timePanel === 'heatmap') {
@@ -320,12 +326,17 @@ function renderTable(
 
 		const table = tableContainer.createEl('table', { cls: 'hledger-tx' });
 		const head = table.createEl('tr');
+		head.createEl('th', { cls: 'hledger-status-col', text: '' });
 		for (const h of ['Date', 'Description', 'Category', 'Amount']) {
 			const th = head.createEl('th', { text: h });
 			if (h === 'Amount') th.addClass('hledger-amt');
 		}
 		for (const r of slice) {
 			const tr = table.createEl('tr');
+			const statusTd = tr.createEl('td', { cls: 'hledger-status-col' });
+			renderStatusBadge(statusTd, r.txn.status, () =>
+				ctx.onToggleStatus(r.txn),
+			);
 			tr.createEl('td', { text: fmtDay(r.date) });
 			tr.createEl('td', { text: r.description });
 			tr.createEl('td', { cls: 'hledger-cat', text: r.category });

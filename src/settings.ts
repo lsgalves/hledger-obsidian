@@ -1,6 +1,8 @@
 import { App, PluginSettingTab, Setting, normalizePath } from 'obsidian';
 import type HledgerPlugin from './main';
 import { DEFAULT_PREFIXES, prefixesToText, textToPrefixes } from './compute';
+import { isExternalPath } from './loader';
+import { normalizeExternalPath } from './journal-fs';
 import type { AccountPrefixMap, PeriodKey } from './types';
 
 export interface HledgerSettings {
@@ -34,17 +36,21 @@ export class HledgerSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Journal file path')
 			.setDesc(
-				'Path to your main hledger file in the vault (.journal or .ledger). Include directives are supported.',
+				'Path to your main hledger file (.journal or .ledger), inside the vault or an absolute path outside it (outside paths work on desktop only). Include directives are supported.',
 			)
 			.addText((text) =>
 				text
-					// eslint-disable-next-line obsidianmd/ui/sentence-case
-					.setPlaceholder('finance/main.journal')
+					.setPlaceholder('Example: finance/main.journal')
 					.setValue(this.plugin.settings.journalPath)
 					.onChange(async (value) => {
-						this.plugin.settings.journalPath = value.trim()
-							? normalizePath(value.trim())
-							: '';
+						const v = value.trim();
+						// Obsidian's normalizePath strips the leading slash an
+						// absolute path needs, so external paths get their own pass.
+						this.plugin.settings.journalPath = !v
+							? ''
+							: isExternalPath(v)
+								? normalizeExternalPath(v)
+								: normalizePath(v);
 						await this.plugin.saveSettings();
 					}),
 			);
@@ -66,8 +72,9 @@ export class HledgerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Default commodity')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
-			.setDesc('Currency to show by default (e.g. BRL, $, USD). Empty = first found.')
+			.setDesc(
+				'Currency symbol or code to show by default. Leave empty to use the first one found.',
+			)
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.defaultCommodity)

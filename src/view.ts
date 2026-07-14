@@ -10,11 +10,16 @@ import {
 	computeNetWorthSeries,
 	computeRecentTransactions,
 	computeSummary,
+	computeWaterfall,
 	classCategories,
+	filterByStatus,
 	pctChange,
 	periodRange,
 	previousRange,
 } from './compute';
+import { renderCompareTab } from './tabs/compare-tab';
+import { renderStatusBadge } from './widgets';
+import { buildSuggestionIndex, distinctDescriptions } from './suggest';
 import {
 	EXPENSE_CONFIG,
 	INCOME_CONFIG,
@@ -28,9 +33,11 @@ import {
 	createIncomeExpenseChart,
 	createNetWorthChart,
 	createStackedCategoryChart,
+	createWaterfallChart,
 	readThemeColors,
 } from './charts';
-import type { Journal, PeriodKey } from './types';
+import type { Journal, PeriodKey, StatusFilter, Transaction } from './types';
+import { nextStatus } from './status';
 import { openRangeCalendar } from './datepicker';
 import { formatRangeLabel } from './daterange';
 import { EntryModal } from './entry-modal';
@@ -50,8 +57,9 @@ export class HledgerView extends ItemView {
 	private period: PeriodKey;
 	private commodity = '';
 	private accountFilter = '';
+	private statusFilter: StatusFilter = 'all';
 	private customRange: { start: Date; end: Date } | null = null;
-	private activeTab: 'overview' | 'expenses' | 'income' = 'overview';
+	private activeTab: 'overview' | 'expenses' | 'income' | 'compare' = 'overview';
 	private expenseCategoryFilter = '';
 	private expenseSearch = '';
 	private expenseDayFilter = '';
@@ -127,22 +135,74 @@ export class HledgerView extends ItemView {
 
 		this.renderTabBar(root);
 
+		// Body computations run on the status-filtered view; control lists use the full model.
+		const view = filterByStatus(journal, this.statusFilter);
+
 		const bar = root.createDiv({ cls: 'hledger-controls' });
 		this.renderPeriodControls(bar);
 		this.renderCommodityControl(bar, journal);
+		this.renderStatusControl(bar);
 		if (this.activeTab === 'overview') {
 			this.renderAccountFilter(bar, journal);
 			this.renderActions(bar, journal);
 			this.maybeWarnings(root, journal, missingIncludes);
-			this.renderBody(root, journal);
+			this.renderBody(root, view);
+		} else if (this.activeTab === 'compare') {
+			this.renderActions(bar, journal);
+			this.maybeWarnings(root, journal, missingIncludes);
+			this.renderCompare(root, view);
 		} else {
 			const config = this.activeTab === 'income' ? INCOME_CONFIG : EXPENSE_CONFIG;
-			const ctx = this.ledgerContext(journal, config);
+			const ctx = this.ledgerContext(view, config);
 			renderLedgerFilter(bar, ctx, config);
 			this.renderActions(bar, journal);
 			this.maybeWarnings(root, journal, missingIncludes);
 			renderLedgerBody(root, ctx, config);
 		}
+	}
+
+	private renderCompare(root: HTMLElement, journal: Journal): void {
+		const range: PeriodRange =
+			this.customRange ?? periodRange(this.period, new Date());
+		const prevRange = this.previousRangeForTrend(range);
+		renderCompareTab(root, {
+			journal,
+			commodity: this.commodity,
+			prefixes: this.plugin.settings.accountPrefixes,
+			range,
+			prevRange,
+			theme: readThemeColors(this.contentEl),
+			currentLabel: 'Current',
+			previousLabel: 'Previous',
+			fmt: (n: number): string => this.formatMoney(n),
+			registerChart: (chart): void => {
+				this.charts.push(chart);
+			},
+		});
+	}
+
+	private toggleStatus(txn: Transaction): void {
+		void this.plugin.setTransactionStatus(txn, nextStatus(txn.status));
+	}
+
+	private renderStatusControl(bar: HTMLElement): void {
+		const wrap = bar.createDiv({ cls: 'hledger-ctl' });
+		setIcon(wrap.createSpan({ cls: 'hledger-ctl-icon' }), 'check-circle-2');
+		const select = wrap.createEl('select', { cls: 'dropdown' });
+		const opts: { value: StatusFilter; label: string }[] = [
+			{ value: 'all', label: 'All statuses' },
+			{ value: 'cleared', label: 'Cleared' },
+			{ value: 'pending', label: 'Pending' },
+			{ value: 'unmarked', label: 'Unmarked' },
+		];
+		for (const o of opts) {
+			const el = select.createEl('option', { text: o.label, value: o.value });
+			if (o.value === this.statusFilter) el.selected = true;
+		}
+		select.addEventListener('change', () => {
+			this.statusFilter = select.value as StatusFilter;
+			void this.refresh();
+		});
 	}
 
 	private maybeWarnings(
@@ -157,7 +217,10 @@ export class HledgerView extends ItemView {
 
 	private renderTabBar(root: HTMLElement): void {
 		const tabs = root.createDiv({ cls: 'hledger-tabs' });
-		const mk = (key: 'overview' | 'expenses' | 'income', label: string): void => {
+		const mk = (
+			key: 'overview' | 'expenses' | 'income' | 'compare',
+			label: string,
+		): void => {
 			const tab = tabs.createDiv({ cls: 'hledger-tab', text: label });
 			if (this.activeTab === key) tab.addClass('is-active');
 			tab.addEventListener('click', () => {
@@ -169,6 +232,7 @@ export class HledgerView extends ItemView {
 		mk('overview', 'Overview');
 		mk('expenses', 'Expenses');
 		mk('income', 'Income');
+		mk('compare', 'Compare');
 	}
 
 	private ledgerContext(journal: Journal, config: LedgerConfig): LedgerContext {
@@ -197,6 +261,7 @@ export class HledgerView extends ItemView {
 				this.expenseDayFilter = this.expenseDayFilter === key ? '' : key;
 				void this.refresh();
 			},
+			onToggleStatus: (txn: Transaction): void => this.toggleStatus(txn),
 			registerChart: (chart: Chart): void => {
 				this.charts.push(chart);
 			},
@@ -227,7 +292,7 @@ export class HledgerView extends ItemView {
 
 	private renderError(
 		root: HTMLElement,
-		result: { error: 'no-path' | 'missing-file'; path?: string },
+		result: { error: 'no-path' | 'missing-file' | 'mobile-external'; path?: string },
 	): void {
 		const box = root.createDiv({ cls: 'hledger-empty' });
 		setIcon(box.createSpan({ cls: 'hledger-empty-icon' }), 'wallet');
@@ -235,7 +300,9 @@ export class HledgerView extends ItemView {
 			text:
 				result.error === 'no-path'
 					? 'No journal file configured yet.'
-					: `Journal file not found: ${result.path ?? ''}`,
+					: result.error === 'mobile-external'
+						? 'Journal files outside the vault are available on desktop only.'
+						: `Journal file not found: ${result.path ?? ''}`,
 		});
 		new ButtonComponent(box)
 			.setButtonText('Open settings')
@@ -334,8 +401,17 @@ export class HledgerView extends ItemView {
 			.setIcon('plus')
 			.setTooltip('New entry')
 			.onClick(() => {
-				new EntryModal(this.app, journal.accounts, this.commodity, (data) => {
-					void this.plugin.appendEntry(buildEntry(data));
+				new EntryModal(this.app, {
+					accounts: journal.accounts,
+					commodity: this.commodity,
+					descriptions: distinctDescriptions(journal),
+					suggestions: buildSuggestionIndex(
+						journal,
+						this.plugin.settings.accountPrefixes,
+					),
+					onSubmit: (data) => {
+						void this.plugin.appendEntry(buildEntry(data));
+					},
 				}).open();
 			});
 		new ButtonComponent(actions)
@@ -421,6 +497,10 @@ export class HledgerView extends ItemView {
 					this.accountFilter,
 				),
 				theme,
+				(label) => {
+					this.accountFilter = label;
+					void this.refresh();
+				},
 			),
 		);
 
@@ -435,6 +515,14 @@ export class HledgerView extends ItemView {
 			),
 		);
 
+		// Cash flow waterfall (full width)
+		const wfSteps = computeWaterfall(journal, commodity, prefixes, range);
+		if (wfSteps.length > 2) {
+			const wfCard = this.card(grid, 'waves', 'Cash flow', true);
+			const wfCanvas = wfCard.createEl('canvas');
+			this.charts.push(createWaterfallChart(wfCanvas, wfSteps, theme, fmt));
+		}
+
 		// Account balances
 		const balCard = this.card(grid, 'landmark', 'Account balances', false);
 		const balances = computeAccountBalances(
@@ -447,7 +535,12 @@ export class HledgerView extends ItemView {
 		const max = Math.max(1, ...balances.map((b) => Math.abs(b.balance)));
 		const balList = balCard.createDiv({ cls: 'hledger-bars' });
 		for (const b of balances) {
-			const row = balList.createDiv({ cls: 'hledger-bar-row' });
+			const row = balList.createDiv({ cls: 'hledger-bar-row is-clickable' });
+			row.setAttribute('title', `Filter by ${b.account}`);
+			row.addEventListener('click', () => {
+				this.accountFilter = this.accountFilter === b.account ? '' : b.account;
+				void this.refresh();
+			});
 			row.createSpan({ cls: 'hledger-bar-name', text: b.account });
 			const track = row.createDiv({ cls: 'hledger-bar-track' });
 			const bar = track.createDiv({ cls: 'hledger-bar' });
@@ -469,6 +562,8 @@ export class HledgerView extends ItemView {
 		const table = recentCard.createEl('table', { cls: 'hledger-tx' });
 		for (const r of recent) {
 			const tr = table.createEl('tr');
+			const statusTd = tr.createEl('td', { cls: 'hledger-status-col' });
+			renderStatusBadge(statusTd, r.txn.status, () => this.toggleStatus(r.txn));
 			tr.createEl('td', {
 				text: `${`${r.date.getDate()}`.padStart(2, '0')}/${`${
 					r.date.getMonth() + 1
